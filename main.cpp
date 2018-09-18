@@ -14,6 +14,7 @@
 #include <QDirIterator>
 #include <QStringBuilder>
 #include <QUuid>
+#include <QtGlobal>
 
 bool writeBitmap(const QString &filename, const QByteArray &content)
 {
@@ -293,7 +294,14 @@ bool spread(const QString &sourcePath, const QString &targetPath)
             QJsonObject jsonObject;
             jsonObject["type"] = "file";
             jsonObject["filesize"] = sourceFileInfo.size();
-            jsonObject["birthTime"] = sourceFileInfo.birthTime().toMSecsSinceEpoch();
+
+            jsonObject["birthTime"] = sourceFileInfo
+#if QT_VERSION >= 0x051000
+                    .birthTime()
+#else
+                    .created()
+#endif
+                    .toMSecsSinceEpoch();
             jsonObject["lastModified"] = sourceFileInfo.lastModified().toMSecsSinceEpoch();
             jsonObject["lastRead"] = sourceFileInfo.lastRead().toMSecsSinceEpoch();
             jsonObject["sha512"] = QString(hash.result().toHex());
