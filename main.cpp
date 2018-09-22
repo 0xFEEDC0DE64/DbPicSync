@@ -296,10 +296,11 @@ bool spread(const QString &sourcePath, const QString &targetPath)
             jsonObject["filesize"] = sourceFileInfo.size();
 
             jsonObject["birthTime"] = sourceFileInfo
-#if QT_VERSION >= 0x051000
-                    .birthTime()
-#else
+#if QT_VERSION < QT_VERSION_CHECK(5, 10, 0)
+                    //deprecated since 5.10
                     .created()
+#else
+                    .birthTime()
 #endif
                     .toMSecsSinceEpoch();
             jsonObject["lastModified"] = sourceFileInfo.lastModified().toMSecsSinceEpoch();
