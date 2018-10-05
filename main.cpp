@@ -27,11 +27,11 @@ bool writeBitmap(const QString &filename, const QByteArray &content)
         return false;
     }
 
-    quint64 pixels = qCeil(content.length() / 4.0);
-    quint32 width = qSqrt(pixels);
-    quint32 height = qCeil(pixels / (qreal)width);
+    const quint64 pixels = qCeil(content.length() / 4.0);
+    const quint32 width = qSqrt(pixels);
+    const quint32 height = qCeil(pixels / (qreal)width);
 
-    quint32 bitmapSize = width * height * 4;
+    const quint32 bitmapSize = width * height * 4;
 
     {
         QDataStream dataStream(&file);
@@ -58,7 +58,7 @@ bool writeBitmap(const QString &filename, const QByteArray &content)
     }
 
     file.write(content);
-    file.write(QByteArray((width * height * 4) - content.length(), 0));
+    file.write(QByteArray((width * height * 4) - content.length(), '\0'));
 
     return true;
 }
@@ -174,7 +174,7 @@ bool spread(const QString &sourcePath, const QString &targetPath)
 {
     qDebug() << "spread" << sourcePath << targetPath;
 
-    QDir targetDir(targetPath);
+    const QDir targetDir(targetPath);
 
     if(!targetDir.mkpath(targetDir.absolutePath()))
     {
@@ -182,7 +182,7 @@ bool spread(const QString &sourcePath, const QString &targetPath)
         return false;
     }
 
-    QFileInfo sourceFileInfo(sourcePath);
+    const QFileInfo sourceFileInfo(sourcePath);
     if(!sourceFileInfo.exists())
     {
         qWarning() << "source does not exist";
@@ -193,10 +193,10 @@ bool spread(const QString &sourcePath, const QString &targetPath)
     {
         bool rewriteIndex = false;
 
-        if(QFile::exists(targetDir.absoluteFilePath("__index.bmp")))
+        if(QFile::exists(targetDir.absoluteFilePath(QStringLiteral("__index.bmp"))))
         {
             QByteArray content;
-            if(readBitmap(targetDir.absoluteFilePath("__index.bmp"), content))
+            if(readBitmap(targetDir.absoluteFilePath(QStringLiteral("__index.bmp")), content))
             {
                 QJsonParseError error;
                 auto document = QJsonDocument::fromJson(content, &error);
@@ -210,26 +210,26 @@ bool spread(const QString &sourcePath, const QString &targetPath)
                     qWarning() << "index is invalid: json is not an object";
                     return false;
                 }
-                auto jsonObject = document.object();
+                const auto jsonObject = document.object();
 
-                if(!jsonObject.contains("type"))
+                if(!jsonObject.contains(QStringLiteral("type")))
                 {
                     qWarning() << "index is invalid: json does not contain type";
                     return false;
                 }
-                auto typeValue = jsonObject.value("type");
+                const auto typeValue = jsonObject.value(QStringLiteral("type"));
                 if(typeValue.type() != QJsonValue::String)
                 {
                     qWarning() << "index is invalid: json type is not a string";
                     return false;
                 }
-                auto type = typeValue.toString();
+                const auto type = typeValue.toString();
 
-                if(type == "file")
+                if(type == QStringLiteral("file"))
                 {
                     //TODO: compare lastmodified and size
                 }
-                else if(type == "directory")
+                else if(type == QStringLiteral("directory"))
                 {
                     qInfo() << "type changed from file to directory";
                     if(!emptyDirectory(targetDir.absolutePath()))
@@ -270,20 +270,20 @@ bool spread(const QString &sourcePath, const QString &targetPath)
 
                 do
                 {
-                    filename = QUuid::createUuid().toString().remove('{').remove('}') % ".bmp";
+                    filename = QUuid::createUuid().toString().remove(QLatin1Char('{')).remove(QLatin1Char('}')) % ".bmp";
                     completePath = targetDir.absoluteFilePath(filename);
                 }
                 while(QFileInfo(completePath).exists());
 
                 QJsonObject part;
-                part["filename"] = filename;
-                part["startPos"] = sourceFile.pos();
+                part[QStringLiteral("filename")] = filename;
+                part[QStringLiteral("startPos")] = sourceFile.pos();
 
-                auto buffer = sourceFile.read(2048 * 2048 * 4);
+                const auto buffer = sourceFile.read(2048 * 2048 * 4);
                 hash.addData(buffer);
 
-                part["endPos"] = sourceFile.pos();
-                part["length"] = buffer.length();
+                part[QStringLiteral("endPos")] = sourceFile.pos();
+                part[QStringLiteral("length")] = buffer.length();
 
                 if(!writeBitmap(completePath, buffer))
                     return false;
@@ -292,10 +292,10 @@ bool spread(const QString &sourcePath, const QString &targetPath)
             }
 
             QJsonObject jsonObject;
-            jsonObject["type"] = "file";
-            jsonObject["filesize"] = sourceFileInfo.size();
+            jsonObject[QStringLiteral("type")] = QStringLiteral("file");
+            jsonObject[QStringLiteral("filesize")] = sourceFileInfo.size();
 
-            jsonObject["birthTime"] = sourceFileInfo
+            jsonObject[QStringLiteral("birthTime")] = sourceFileInfo
 #if QT_VERSION < QT_VERSION_CHECK(5, 10, 0)
                     //deprecated since 5.10
                     .created()
@@ -303,17 +303,18 @@ bool spread(const QString &sourcePath, const QString &targetPath)
                     .birthTime()
 #endif
                     .toMSecsSinceEpoch();
-            jsonObject["lastModified"] = sourceFileInfo.lastModified().toMSecsSinceEpoch();
-            jsonObject["lastRead"] = sourceFileInfo.lastRead().toMSecsSinceEpoch();
-            jsonObject["sha512"] = QString(hash.result().toHex());
-            jsonObject["parts"] = parts;
-            if(!writeBitmap(targetDir.absoluteFilePath("__index.bmp"), QJsonDocument(jsonObject).toJson(/* QJsonDocument::Compact */))) //amazon has enough storage space!
+            jsonObject[QStringLiteral("lastModified")] = sourceFileInfo.lastModified().toMSecsSinceEpoch();
+            jsonObject[QStringLiteral("lastRead")] = sourceFileInfo.lastRead().toMSecsSinceEpoch();
+            jsonObject[QStringLiteral("sha512")] = QString(hash.result().toHex());
+            jsonObject[QStringLiteral("parts")] = parts;
+            if(!writeBitmap(targetDir.absoluteFilePath(QStringLiteral("__index.bmp")),
+                            QJsonDocument(jsonObject).toJson(/* QJsonDocument::Compact */))) //amazon has enough storage for spaces!
                 return false;
         }
     }
     else if(sourceFileInfo.isDir())
     {
-        QDir sourceDir(sourcePath);
+        const QDir sourceDir(sourcePath);
         if(!sourceDir.exists())
         {
             qWarning() << "source dir does not exist";
@@ -323,13 +324,13 @@ bool spread(const QString &sourcePath, const QString &targetPath)
         bool rewriteIndex = false;
         QStringList oldEntries;
 
-        if(QFile::exists(targetDir.absoluteFilePath("__index.bmp")))
+        if(QFile::exists(targetDir.absoluteFilePath(QStringLiteral("__index.bmp"))))
         {
             QByteArray content;
-            if(readBitmap(targetDir.absoluteFilePath("__index.bmp"), content))
+            if(readBitmap(targetDir.absoluteFilePath(QStringLiteral("__index.bmp")), content))
             {
                 QJsonParseError error;
-                auto document = QJsonDocument::fromJson(content, &error);
+                const auto document = QJsonDocument::fromJson(content, &error);
                 if(error.error != QJsonParseError::NoError)
                 {
                     qWarning() << "index is invalid: error parsing json" << error.errorString();
@@ -340,44 +341,44 @@ bool spread(const QString &sourcePath, const QString &targetPath)
                     qWarning() << "index is invalid: json is not an object";
                     return false;
                 }
-                auto jsonObject = document.object();
+                const auto jsonObject = document.object();
 
-                if(!jsonObject.contains("type"))
+                if(!jsonObject.contains(QStringLiteral("type")))
                 {
                     qWarning() << "index is invalid: json does not contain type";
                     return false;
                 }
-                auto typeValue = jsonObject.value("type");
+                const auto typeValue = jsonObject.value(QStringLiteral("type"));
                 if(typeValue.type() != QJsonValue::String)
                 {
                     qWarning() << "index is invalid: json type is not a string";
                     return false;
                 }
-                auto type = typeValue.toString();
+                const auto type = typeValue.toString();
 
-                if(type == "file")
+                if(type == QStringLiteral("file"))
                 {
                     qInfo() << "type changed from directory to file";
                     if(!emptyDirectory(targetDir.absolutePath()))
                         return false;
                     rewriteIndex = true;
                 }
-                else if(type == "directory")
+                else if(type == QStringLiteral("directory"))
                 {
                     if(!jsonObject.contains("entries"))
                     {
                         qWarning() << "index is invalid: json does not contain entries";
                         rewriteIndex = true;
                     }
-                    auto entriesValue = jsonObject.value("entries");
+                    const auto entriesValue = jsonObject.value(QStringLiteral("entries"));
                     if(entriesValue.type() != QJsonValue::Array)
                     {
                         qWarning() << "index is invalid: json entries is not an array";
                         rewriteIndex = true;
                     }
-                    auto entries = entriesValue.toArray();
+                    const auto entries = entriesValue.toArray();
 
-                    for(const auto &value : entries)
+                    for(auto value : entries)
                     {
                         if(value.type() != QJsonValue::String)
                         {
@@ -403,7 +404,7 @@ bool spread(const QString &sourcePath, const QString &targetPath)
 
         for(const auto &oldEntry : oldEntries)
         {
-            QFileInfo oldFileInfo(sourceDir.absoluteFilePath(oldEntry));
+            const QFileInfo oldFileInfo(sourceDir.absoluteFilePath(oldEntry));
             if(!oldFileInfo.exists())
             {
                 qInfo() << "deleted" << sourceDir.absoluteFilePath(oldEntry);
@@ -418,7 +419,7 @@ bool spread(const QString &sourcePath, const QString &targetPath)
 
         QJsonArray entries;
 
-        for(auto fileInfo : sourceDir.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot))
+        for(const auto &fileInfo : sourceDir.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot))
         {
             if(!oldEntries.contains(fileInfo.fileName()))
             {
@@ -434,9 +435,10 @@ bool spread(const QString &sourcePath, const QString &targetPath)
         if(rewriteIndex)
         {
             QJsonObject jsonObject;
-            jsonObject["type"] = "directory";
-            jsonObject["entries"] = entries;
-            if(!writeBitmap(targetDir.absoluteFilePath("__index.bmp"), QJsonDocument(jsonObject).toJson(/* QJsonDocument::Compact */))) //amazon has enough storage space!
+            jsonObject[QStringLiteral("type")] = QStringLiteral("directory");
+            jsonObject[QStringLiteral("entries")] = entries;
+            if(!writeBitmap(targetDir.absoluteFilePath(QStringLiteral("__index.bmp")),
+                            QJsonDocument(jsonObject).toJson(/* QJsonDocument::Compact */))) //amazon has enough storage for spaces!
                 return false;
         }
     }
@@ -466,7 +468,7 @@ bool compile(const QString &sourcePath, const QString &targetPath)
 
     {
         QByteArray content;
-        if(!readBitmap(sourceDir.absoluteFilePath("__index.bmp"), content))
+        if(!readBitmap(sourceDir.absoluteFilePath(QStringLiteral("__index.bmp")), content))
             return false;
 
         QJsonParseError error;
@@ -484,20 +486,20 @@ bool compile(const QString &sourcePath, const QString &targetPath)
         jsonObject = document.object();
     }
 
-    if(!jsonObject.contains("type"))
+    if(!jsonObject.contains(QStringLiteral("type")))
     {
         qWarning() << "json does not contain type";
         return false;
     }
-    auto typeValue = jsonObject.value("type");
+    const auto typeValue = jsonObject.value(QStringLiteral("type"));
     if(typeValue.type() != QJsonValue::String)
     {
         qWarning() << "json type is not a string";
         return false;
     }
-    auto type = typeValue.toString();
+    const auto type = typeValue.toString();
 
-    if(type == "file")
+    if(type == QStringLiteral("file"))
     {
         QFile targetFile(targetPath);
 
@@ -509,7 +511,7 @@ bool compile(const QString &sourcePath, const QString &targetPath)
 
         //TODO
     }
-    else if(type == "directory")
+    else if(type == QStringLiteral("directory"))
     {
         QDir targetDir(targetPath);
 
@@ -519,20 +521,20 @@ bool compile(const QString &sourcePath, const QString &targetPath)
             return false;
         }
 
-        if(!jsonObject.contains("entries"))
+        if(!jsonObject.contains(QStringLiteral("entries")))
         {
             qWarning() << "json does not contain entries";
             return false;
         }
-        auto entriesValue = jsonObject.value("entries");
+        const auto entriesValue = jsonObject.value(QStringLiteral("entries"));
         if(entriesValue.type() != QJsonValue::Array)
         {
             qWarning() << "json entries is not an array";
             return false;
         }
-        auto entries = entriesValue.toArray();
+        const auto entries = entriesValue.toArray();
 
-        for(const auto &entryValue : entries)
+        for(auto entryValue : entries)
         {
             if(entryValue.type() != QJsonValue::String)
             {
@@ -596,9 +598,9 @@ int main(int argc, char *argv[])
 
     enum { ActionSpread, ActionCompile } action;
 
-    if(parser.value(actionOption) == "spread")
+    if(parser.value(actionOption) == QStringLiteral("spread"))
         action = ActionSpread;
-    else if(parser.value(actionOption) == "compile")
+    else if(parser.value(actionOption) == QStringLiteral("compile"))
         action = ActionCompile;
     else
     {
@@ -635,7 +637,7 @@ int main(int argc, char *argv[])
         return -6;
     }
 
-    QFileInfo targetFileInfo(parser.value(targetOption));
+    const QFileInfo targetFileInfo(parser.value(targetOption));
     if(targetFileInfo.exists() && !targetFileInfo.isDir())
     {
         qCritical() << "target" << parser.value(targetOption) << "exists and is not a dir";
