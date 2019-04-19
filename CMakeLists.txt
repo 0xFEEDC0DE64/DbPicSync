@@ -11,4 +11,4 @@ set(SOURCES
 
 add_executable(picsync ${HEADERS} ${SOURCES})
 
-target_link_libraries(picsync Qt5::Core dbcorelib)
+target_link_libraries(picsync stdc++ m Qt5::Core dbcorelib)

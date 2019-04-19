@@ -28,9 +28,9 @@ bool writeBitmap(const QString &filename, const QByteArray &content)
         return false;
     }
 
-    const quint64 pixels = qCeil(content.length() / 4.0);
-    const quint32 width = qSqrt(pixels);
-    const quint32 height = qCeil(pixels / (qreal)width);
+    const quint64 pixels = std::ceil(content.length() / 4.0);
+    const quint32 width = std::sqrt(pixels);
+    const quint32 height = std::ceil(pixels / (qreal)width);
 
     const quint32 bitmapSize = width * height * 4;
 
